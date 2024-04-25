@@ -118,6 +118,9 @@ class RouteProcessor
                             : Str::of($route->uri())->after('api/')->explode('/')
                     )->filter(fn ($value) => ! is_null($value) && $value !== '');
 
+                //Remove extra folder for each request
+                $routeNameSegments->forget($routeNameSegments->count() - 1);
+
                     if (! $this->config['crud_folders']) {
                         if (in_array($routeNameSegments->last(), ['index', 'store', 'show', 'update', 'destroy'])) {
                             $routeNameSegments->forget($routeNameSegments->count() - 1);
