@@ -56,7 +56,7 @@ class RouteProcessor
     protected function processRoute(Route $route)
     {
         try {
-            $methods = array_filter($route->methods(), fn ($value) => $value !== 'HEAD');
+            $methods = array_filter($route->methods(), fn($value) => $value !== 'HEAD');
             $middlewares = $route->gatherMiddleware();
 
             foreach ($methods as $method) {
@@ -68,13 +68,13 @@ class RouteProcessor
                     }
                 }
 
-                if (empty($middlewares) || ! $includedMiddleware) {
+                if (empty($middlewares) || !$includedMiddleware) {
                     continue;
                 }
 
                 $reflectionMethod = $this->getReflectionMethod($route->getAction());
 
-                if (! $reflectionMethod) {
+                if (!$reflectionMethod) {
                     continue;
                 }
 
@@ -94,9 +94,10 @@ class RouteProcessor
                     $description = (new DocBlockProcessor)($reflectionMethod);
                 }
 
+
                 $data = [
-                    'name' => $route->uri(),
-                    'request' => array_merge(
+                    'name'     => $route->getActionMethod(),
+                    'request'  => array_merge(
                         $this->processRequest(
                             $method,
                             $uri,
@@ -112,16 +113,12 @@ class RouteProcessor
                 ];
 
                 if ($this->config['structured']) {
-                    $routeNameSegments = (
-                        $route->getName()
-                            ? Str::of($route->getName())->explode('.')
-                            : Str::of($route->uri())->after('api/')->explode('/')
-                    )->filter(fn ($value) => ! is_null($value) && $value !== '');
+                    $routeNameSegments = Str::of($route->uri())->after('api/')->explode('/')->filter(fn($value
+                    ) => !is_null($value) && $value !== '' && !preg_match('/^{\w+}$/', $value));
+                   
+                    $routeNameSegments->forget($routeNameSegments->count() - 1);
 
-                //Remove extra folder for each request
-                $routeNameSegments->forget($routeNameSegments->count() - 1);
-
-                    if (! $this->config['crud_folders']) {
+                    if (!$this->config['crud_folders']) {
                         if (in_array($routeNameSegments->last(), ['index', 'store', 'show', 'update', 'destroy'])) {
                             $routeNameSegments->forget($routeNameSegments->count() - 1);
                         }
@@ -137,6 +134,13 @@ class RouteProcessor
         }
     }
 
+    private function removeCurlyBraceElements(Collection $collection)
+    {
+        return $collection->filter(function ($item) {
+            return !preg_match('/^{\w+}$/', $item);
+        });
+    }
+
     protected function processRequest(string $method, Stringable $uri, Collection $rules): array
     {
         return collect([
@@ -146,10 +150,10 @@ class RouteProcessor
                 ->filter()
                 ->values()
                 ->all(),
-            'url' => [
-                'raw' => '{{base_url}}/'.$uri,
-                'host' => ['{{base_url}}'],
-                'path' => $uri->explode('/')->filter()->all(),
+            'url'    => [
+                'raw'      => '{{base_url}}/'.$uri,
+                'host'     => ['{{base_url}}'],
+                'path'     => $uri->explode('/')->filter()->all(),
                 'variable' => $uri
                     ->matchAll('/(?<={)[[:alnum:]]+(?=})/m')
                     ->transform(function ($variable) {
@@ -163,21 +167,22 @@ class RouteProcessor
                     return $collection;
                 }
 
-                $rules->transform(fn ($rule) => [
-                    'key' => $rule['name'],
-                    'value' => $this->config['formdata'][$rule['name']] ?? null,
-                    'description' => $this->config['print_rules'] ? $this->parseRulesIntoHumanReadable($rule['name'], $rule['description']) : null,
+                $rules->transform(fn($rule) => [
+                    'key'         => $rule['name'],
+                    'value'       => $this->config['formdata'][$rule['name']] ?? null,
+                    'description' => $this->config['print_rules'] ? $this->parseRulesIntoHumanReadable($rule['name'],
+                        $rule['description']) : null,
                 ]);
 
                 if ($method === 'GET') {
                     return $collection->put('url', [
-                        'query' => $rules->map(fn ($value) => array_merge($value, ['disabled' => false])),
+                        'query' => $rules->map(fn($value) => array_merge($value, ['disabled' => false])),
                     ]);
                 }
 
                 return $collection->put('body', [
-                    'mode' => 'urlencoded',
-                    'urlencoded' => $rules->map(fn ($value) => array_merge($value, ['type' => 'text'])),
+                    'mode'       => 'urlencoded',
+                    'urlencoded' => $rules->map(fn($value) => array_merge($value, ['type' => 'text'])),
                 ]);
             })
             ->all();
@@ -189,7 +194,7 @@ class RouteProcessor
             'code' => 200,
             'body' => [
                 'mode' => 'raw',
-                'raw' => '',
+                'raw'  => '',
             ],
         ];
     }
@@ -210,7 +215,7 @@ class RouteProcessor
         $routeData = explode('@', $routeAction['uses']);
         $reflection = new ReflectionClass($routeData[0]);
 
-        if (! $reflection->hasMethod($routeData[1])) {
+        if (!$reflection->hasMethod($routeData[1])) {
             return null;
         }
 
@@ -220,16 +225,17 @@ class RouteProcessor
     private function containsSerializedClosure(array $action): bool
     {
         return is_string($action['uses']) && Str::startsWith($action['uses'], [
-            'C:32:"Opis\\Closure\\SerializableClosure',
-            'O:47:"Laravel\SerializableClosure\\SerializableClosure',
-            'O:55:"Laravel\\SerializableClosure\\UnsignedSerializableClosure',
-        ]);
+                'C:32:"Opis\\Closure\\SerializableClosure',
+                'O:47:"Laravel\SerializableClosure\\SerializableClosure',
+                'O:55:"Laravel\\SerializableClosure\\UnsignedSerializableClosure',
+            ]);
     }
 
     protected function buildTree(array &$routes, array $segments, array $request): void
     {
         $parent = &$routes;
         $destination = end($segments);
+
 
         foreach ($segments as $segment) {
             $matched = false;
@@ -250,7 +256,7 @@ class RouteProcessor
 
             unset($item);
 
-            if (! $matched) {
+            if (!$matched) {
                 $item = [
                     'name' => $segment,
                     'item' => $segment === $destination ? [$request] : [],
@@ -267,7 +273,7 @@ class RouteProcessor
     protected function parseRulesIntoHumanReadable($attribute, $rules): string
     {
         // ... bail if user has asked for non interpreted strings:
-        if (! $this->config['rules_to_human_readable']) {
+        if (!$this->config['rules_to_human_readable']) {
             foreach ($rules as $i => $rule) {
                 // because we don't support custom rule classes, we remove them from the rules
                 if (is_subclass_of($rule, Rule::class)) {
@@ -339,7 +345,8 @@ class RouteProcessor
      */
     protected function safelyStringifyClassBasedRule($probableRule): string
     {
-        if (! is_object($probableRule) || is_subclass_of($probableRule, Rule::class) || ! method_exists($probableRule, '__toString')) {
+        if (!is_object($probableRule) || is_subclass_of($probableRule, Rule::class) || !method_exists($probableRule,
+                '__toString')) {
             return '';
         }
 
